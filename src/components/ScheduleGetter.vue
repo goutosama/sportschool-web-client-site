@@ -189,7 +189,7 @@ watch(selectedTeacher, changeTable)
                                             {{ event.name }}
                                         </v-card-title>
                                         <v-card-subtitle class="card-subtitle">
-                                            {{ event.hall }} <br>
+                                            {{ event.hall.name }} <br>
                                             {{ event.startTime }} - {{ event.endTime }}
                                         </v-card-subtitle>
                                         <v-card-text class="card-text">
