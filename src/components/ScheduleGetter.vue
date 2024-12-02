@@ -1,6 +1,8 @@
 <script setup lang="js">
 import { ref } from "vue";
 import { VCardTitle } from 'vuetify/components';
+import { httpClient } from '../stores/httpClient.ts';
+
 
 const modes = [
     { text: "По преподавателю", value: "teacher" },
@@ -19,38 +21,119 @@ const weekdays = [
 
 // Список событий
 const events = ref([
-    { title: "Математика", day: 1, start: "10:00", end: "11:30", teacher: "Иванов", room: "101" },
-    { title: "Физика", day: 3, start: "12:00", end: "13:00", teacher: "Петров", room: "202" },
-    { title: "Химия", day: 3, start: "14:00", end: "15:30", teacher: "Сидоров", room: "103" },
-    { title: "Информатика", day: 5, start: "09:00", end: "10:30", teacher: "Кузнецов", room: "105" },
+    { name: "Математика", weekDay: 1, startTime: "10:00", endTime: "11:30", teacher: { lastName: "Иванов", firstName: "Андрей", patronym: "Сергеевич" }, hall: "101" },
+    { title: "Физика", day: 3, start: "12:00", end: "13:00", teacher: { lastName: "Петров", firstName: "Андрей", patronym: "Сергеевич" }, hall: "202" },
+    { title: "Химия", day: 3, start: "14:00", end: "15:30", teacher: { lastName: "Сидоров", firstName: "Игорь", patronym: "Сергеевич" }, hall: "103" },
+    { title: "Информатика", day: 5, start: "09:00", end: "10:30", teacher: { lastName: "Кузнецов", firstName: "Денис", patronym: "Сергеевич" }, hall: "105" },
 ]);
 
 // События по дням недели
 const eventsByDay = computed(() =>
     weekdays.map((day) => ({
         day,
-        events: events.value.filter((event) => event.day === day.val),
+        events: events.value.filter((event) => event.weekDay === day.val),
     }))
 );
 
-// Список преподавателей
-const teachers = [
-    { id: 1, fullName: "Иванов Иван Иванович", firstName: "Иван", lastName: "Иванов", middleName: "Иванович" },
-    { id: 2, fullName: "Петров Петр Петрович", firstName: "Петр", lastName: "Петров", middleName: "Петрович" },
-    { id: 3, fullName: "Сергеев Сергей Сергеевич", firstName: "Сергей", lastName: "Сергеев", middleName: "Сергеевич" },
-];
+async function changeTable() {
+    console.log(selectedMode.value, selectedTeacher, selectedHall, selectedGroup)
+    let endpoint = "/lessons/"
+    switch (selectedMode) {
+        case 'teacher':
+            endpoint += "teacher" + "/" + selectedTeacher.value.id
+            break;
+        case 'group':
+            endpoint += "group" + "/" + selectedGroup.value.id
+            break;
+        case 'hall':
+            endpoint += "unknown" + "/" + selectedHall.value.id
+            break;
+    }
+    try {
+        const response = await httpClient.get(endpoint);
+        events.value = response.data;
+        convertEvents(events.value)
+        console.log(events.value)
+    } catch (error) {
+        console.error("Ошибка загрузки событий:", error);
+    }
+}
 
-// Поле для выбранного преподавателя
+function addMinutes(date, minutes) {
+    return new Date(date.getTime() + minutes * 60000);
+}
+
+function convertEvents(events) {
+    for (let i = 0; i < events.length; i++) {
+        const element = events[i];
+        element.endTime = addMinutes(new Date("1970-01-01 " + element.startTime),
+            element.duration).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) // Эта громадная строка делает добавляет к дате минуты и возвращает eё как строку HH:MM
+        if (element.teacher.patronym == undefined) {
+            element.teacher.patronym = ""
+        }
+        if (element.hall === undefined) {
+            element.hall === ''
+        }
+    }
+}
+
+const endpointTeachers = "/teachers"
+const endpointGroups = "/groups"
+const endpointHalls = "/unknown"
+
+const teachers = ref([]);
+const groups = ref([]);
+const halls = ref([]);
+
+const selectedHall = ref(null);
 const selectedTeacher = ref(null);
+const selectedGroup = ref(null);
 
 // Кастомный фильтр для поиска по всем трём полям
 function customFilter(item, queryText) {
     const searchText = queryText.toLowerCase();
-    const fullName = `${item.lastName} ${item.firstName} ${item.middleName}`.toLowerCase();
+    const fullName = `${item.lastName} ${item.firstName} ${item.patronym}`.toLowerCase();
     return fullName.includes(searchText);
 }
 
-//addEventsToDays();
+async function getTeachers() {
+    try {
+        const response = await httpClient.get(endpointTeachers);
+        teachers.value = response.data;
+        for (let i = 0; i < teachers.value.length; i++) {
+            teachers.value[i].dateOfBirth = new Date(teachers.value[i].dateOfBirth);
+            teachers.value[i].fullName = teachers.value[i].lastName + " " + teachers.value[i].firstName + " " + teachers.value[i].patronym
+        }
+
+        console.log(teachers.value);
+    } catch (error) {
+        console.error("Ошибка загрузки преподавателей:", error);
+    }
+}
+
+async function getGroups() {
+    try {
+        const response = await httpClient.get(endpointGroups);
+        groups.value = response.data;
+        console.log(groups.value)
+    } catch (error) {
+        console.error("Ошибка загрузки групп:", error);
+    }
+}
+
+async function getAll() {
+    getGroups()
+    getTeachers()
+    //getHalls()
+}
+
+getAll()
+
+
+
+watch(selectedGroup, changeTable)
+watch(selectedTeacher, changeTable)
+//watch(selectedHall, changeTable)
 </script>
 
 <template>
@@ -58,7 +141,7 @@ function customFilter(item, queryText) {
         <v-row>
             <v-col cols="2">
                 <v-sheet rounded="lg">
-                    <v-list rounded="lg">
+                    <v-list rounded="lg" color="indigo-lighten-1">
                         <v-list-item>
                             Тип расписания
                         </v-list-item>
@@ -76,16 +159,20 @@ function customFilter(item, queryText) {
                 <v-sheet min-height="40vh" rounded="lg" class="pa-4" elevation="10">
                     <div v-if="selectedMode === 'teacher'">
                         <v-autocomplete v-model="selectedTeacher" :items="teachers" item-title="fullName"
-                            :filter="customFilter" label="Выберите преподавателя" return-object
-                            clearable></v-autocomplete>
+                            :filter="customFilter" label="Выберите преподавателя" color="indigo-lighten-1"
+                            base-color="indigo" return-object></v-autocomplete>
                     </div>
                     <div v-if="selectedMode === 'group'">
                         <v-autocomplete v-model="selectedGroup" :items="groups" item-title="name"
-                            label="Выберите группу" return-object
-                            clearable></v-autocomplete>
+                            label="Выберите группу" return-object color="indigo-lighten-1"
+                            base-color="indigo"></v-autocomplete>
+                    </div>
+                    <div v-if="selectedMode === 'hall'">
+                        <v-autocomplete v-model="selectedHall" :items="halls" item-title="name" label="Выберите зал"
+                            return-object color="indigo-lighten-1" base-color="indigo"></v-autocomplete>
                     </div>
                     <div v-if="selectedMode">
-                        <v-card color="blue">
+                        <v-card color="indigo">
                             <v-row class="weekdays-header">
                                 <!-- Заголовки дней недели -->
                                 <v-col v-for="(day, index) in weekdays" :key="index"
@@ -99,14 +186,15 @@ function customFilter(item, queryText) {
                                     <v-card v-for="event in dayData.events" :key="event.title" class="mb-2"
                                         elevation="2" outlined density="compact">
                                         <v-card-title class="card-title">
-                                            {{ event.title }}
+                                            {{ event.name }}
                                         </v-card-title>
                                         <v-card-subtitle class="card-subtitle">
-                                            {{ event.room }} <br>
-                                            {{ event.start }} - {{ event.end }}
+                                            {{ event.hall }} <br>
+                                            {{ event.startTime }} - {{ event.endTime }}
                                         </v-card-subtitle>
                                         <v-card-text class="card-text">
-                                            {{ event.teacher }}
+                                            {{ `${event.teacher.lastName} ${event.teacher.firstName[0]}.
+                                            ${event.teacher.patronym[0]}.` }}
                                         </v-card-text>
                                     </v-card>
                                 </v-col>

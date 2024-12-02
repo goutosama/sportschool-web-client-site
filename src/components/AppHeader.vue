@@ -8,9 +8,9 @@ const links = [
 </script>
 
 <template>
-    <v-app-bar flat>
+    <v-app-bar flat color="indigo" elevation="10">
         <v-container class="mx-auto d-flex align-center justify-center">
-            <v-avatar class="me-4 " color="grey-darken-1" size="32"></v-avatar>
+            <v-avatar class="me-4 " color="indigo-darken-1" size="32"></v-avatar>
 
             <v-btn v-for="link in links" :key="link" :text="link" variant="text"></v-btn>
 
