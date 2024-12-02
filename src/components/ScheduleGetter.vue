@@ -21,10 +21,6 @@ const weekdays = [
 
 // Список событий
 const events = ref([
-    { name: "Математика", weekDay: 1, startTime: "10:00", endTime: "11:30", teacher: { lastName: "Иванов", firstName: "Андрей", patronym: "Сергеевич" }, hall: "101" },
-    { title: "Физика", day: 3, start: "12:00", end: "13:00", teacher: { lastName: "Петров", firstName: "Андрей", patronym: "Сергеевич" }, hall: "202" },
-    { title: "Химия", day: 3, start: "14:00", end: "15:30", teacher: { lastName: "Сидоров", firstName: "Игорь", patronym: "Сергеевич" }, hall: "103" },
-    { title: "Информатика", day: 5, start: "09:00", end: "10:30", teacher: { lastName: "Кузнецов", firstName: "Денис", patronym: "Сергеевич" }, hall: "105" },
 ]);
 
 // События по дням недели
@@ -36,9 +32,10 @@ const eventsByDay = computed(() =>
 );
 
 async function changeTable() {
+    events.value = []
     console.log(selectedMode.value, selectedTeacher, selectedHall, selectedGroup)
     let endpoint = "/lessons/"
-    switch (selectedMode) {
+    switch (selectedMode.value) {
         case 'teacher':
             endpoint += "teacher" + "/" + selectedTeacher.value.id
             break;
@@ -46,7 +43,7 @@ async function changeTable() {
             endpoint += "group" + "/" + selectedGroup.value.id
             break;
         case 'hall':
-            endpoint += "unknown" + "/" + selectedHall.value.id
+            endpoint += "halls" + "/" + selectedHall.value.id
             break;
     }
     try {
@@ -79,7 +76,7 @@ function convertEvents(events) {
 
 const endpointTeachers = "/teachers"
 const endpointGroups = "/groups"
-const endpointHalls = "/unknown"
+const endpointHalls = "/halls"
 
 const teachers = ref([]);
 const groups = ref([]);
@@ -121,10 +118,20 @@ async function getGroups() {
     }
 }
 
+async function getHalls() {
+    try {
+        const response = await httpClient.get(endpointHalls);
+        halls.value = response.data;
+        console.log(halls.value)
+    } catch (error) {
+        console.error("Ошибка загрузки групп:", error);
+    }
+}
+
 async function getAll() {
     getGroups()
     getTeachers()
-    //getHalls()
+    getHalls()
 }
 
 getAll()
@@ -133,7 +140,7 @@ getAll()
 
 watch(selectedGroup, changeTable)
 watch(selectedTeacher, changeTable)
-//watch(selectedHall, changeTable)
+watch(selectedHall, changeTable)
 </script>
 
 <template>
@@ -160,7 +167,7 @@ watch(selectedTeacher, changeTable)
                     <div v-if="selectedMode === 'teacher'">
                         <v-autocomplete v-model="selectedTeacher" :items="teachers" item-title="fullName"
                             :filter="customFilter" label="Выберите преподавателя" color="indigo-lighten-1"
-                            base-color="indigo" return-object></v-autocomplete>
+                            base-color="indigo" return-object v-on:update:model-value="changeTable"></v-autocomplete>
                     </div>
                     <div v-if="selectedMode === 'group'">
                         <v-autocomplete v-model="selectedGroup" :items="groups" item-title="name"
